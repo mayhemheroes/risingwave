@@ -19,8 +19,9 @@ use futures_async_stream::try_stream;
 use itertools::Itertools;
 use risingwave_common::array::column::Column;
 use risingwave_common::array::StreamChunk;
-use risingwave_common::catalog::Schema;
+use risingwave_common::catalog::{ColumnDesc, ColumnId, Schema};
 use risingwave_common::error::Result;
+use risingwave_storage::table::state_table::StateTable;
 use risingwave_storage::{Keyspace, StateStore};
 
 use super::*;
@@ -64,6 +65,10 @@ pub struct SimpleAggExecutor<S: StateStore> {
     /// An operator will support multiple aggregation calls.
     agg_calls: Vec<AggCall>,
 
+    /// Relational state tables used by this executor.
+    /// One-to-one map with AggCall.
+    state_tables: Vec<StateTable<S>>,
+
     #[allow(dead_code)]
     /// Indices of the columns on which key distribution depends.
     key_indices: Vec<usize>,
@@ -99,6 +104,20 @@ impl<S: StateStore> SimpleAggExecutor<S> {
         let input_info = input.info();
         let schema = generate_agg_schema(input.as_ref(), &agg_calls, None);
 
+        // Create state tables for each agg call.
+        let mut state_tables = Vec::with_capacity(agg_calls.len());
+        for (agg_call, ks) in agg_calls.iter().zip_eq(&keyspace) {
+            let state_table = StateTable::new(
+                ks.clone(),
+                vec![ColumnDesc::unnamed(
+                    ColumnId::new(0),
+                    agg_call.return_type.clone(),
+                )],
+                vec![],
+            );
+            state_tables.push(state_table);
+        }
+
         Ok(Self {
             input,
             info: ExecutorInfo {
@@ -112,9 +131,11 @@ impl<S: StateStore> SimpleAggExecutor<S> {
             states: None,
             agg_calls,
             key_indices,
+            state_tables,
         })
     }
 
+    #[allow(clippy::too_many_arguments)]
     async fn apply_chunk(
         agg_calls: &[AggCall],
         input_pk_indices: &[usize],
@@ -123,6 +144,7 @@ impl<S: StateStore> SimpleAggExecutor<S> {
         keyspace: &[Keyspace<S>],
         chunk: StreamChunk,
         epoch: u64,
+        state_tables: &[StateTable<S>],
     ) -> StreamExecutorResult<()> {
         let (ops, columns, visibility) = chunk.into_inner();
 
@@ -153,6 +175,7 @@ impl<S: StateStore> SimpleAggExecutor<S> {
                 input_pk_data_types,
                 epoch,
                 None,
+                state_tables,
             )
             .await?;
             *states = Some(state);
@@ -181,6 +204,7 @@ impl<S: StateStore> SimpleAggExecutor<S> {
         states: &mut Option<AggState<S>>,
         keyspace: &[Keyspace<S>],
         epoch: u64,
+        state_tables: &mut [StateTable<S>],
     ) -> StreamExecutorResult<Option<StreamChunk>> {
         // The state store of each keyspace is the same so just need the first.
         let store = keyspace[0].state_store();
@@ -194,10 +218,12 @@ impl<S: StateStore> SimpleAggExecutor<S> {
         };
 
         let mut write_batch = store.start_write_batch();
-        for state in &mut states.managed_states {
+        for (idx, state) in states.managed_states.iter_mut().enumerate() {
             state
-                .flush(&mut write_batch)
+                .flush(&mut write_batch, &mut state_tables[idx])
+                .await
                 .map_err(StreamExecutorError::agg_state_error)?;
+            state_tables[idx].commit(epoch).await?;
         }
         write_batch
             .ingest(epoch)
@@ -240,6 +266,7 @@ impl<S: StateStore> SimpleAggExecutor<S> {
             mut states,
             agg_calls,
             key_indices: _,
+            mut state_tables,
         } = self;
         let mut input = input.execute();
         let first_msg = input.next().await.unwrap()?;
@@ -262,13 +289,20 @@ impl<S: StateStore> SimpleAggExecutor<S> {
                         &keyspace,
                         chunk,
                         epoch,
+                        &state_tables,
                     )
                     .await?;
                 }
                 Message::Barrier(barrier) => {
                     let next_epoch = barrier.epoch.curr;
-                    if let Some(chunk) =
-                        Self::flush_data(&info.schema, &mut states, &keyspace, epoch).await?
+                    if let Some(chunk) = Self::flush_data(
+                        &info.schema,
+                        &mut states,
+                        &keyspace,
+                        epoch,
+                        &mut state_tables,
+                    )
+                    .await?
                     {
                         assert_eq!(epoch, barrier.epoch.prev);
                         yield Message::Chunk(chunk);

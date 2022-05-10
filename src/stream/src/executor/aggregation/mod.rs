@@ -32,6 +32,7 @@ use risingwave_common::hash::HashCode;
 use risingwave_common::types::{DataType, Datum};
 use risingwave_expr::expr::AggKind;
 use risingwave_expr::*;
+use risingwave_storage::table::state_table::StateTable;
 use risingwave_storage::{Keyspace, StateStore};
 pub use row_count::*;
 use static_assertions::const_assert_eq;
@@ -338,6 +339,7 @@ pub async fn generate_managed_agg_state<S: StateStore>(
     pk_data_types: PkDataTypes,
     epoch: u64,
     key_hash_code: Option<HashCode>,
+    state_tables: &[StateTable<S>],
 ) -> StreamExecutorResult<AggState<S>> {
     let mut managed_states = vec![];
 
@@ -363,6 +365,8 @@ pub async fn generate_managed_agg_state<S: StateStore>(
             pk_data_types.clone(),
             idx == ROW_COUNT_COLUMN,
             key_hash_code.clone(),
+            key,
+            &state_tables[idx],
         )
         .await
         .map_err(StreamExecutorError::agg_state_error)?;
