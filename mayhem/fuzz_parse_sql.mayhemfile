@@ -1,7 +1,7 @@
 project: risingwave
 target: fuzz_parse_sql
 
-image: ghcr.io/nottirb/risingwave:latest
+# image: ghcr.io/nottirb/risingwave:latest
 
 cmds:
     - cmd: /fuzz_parse_sql
