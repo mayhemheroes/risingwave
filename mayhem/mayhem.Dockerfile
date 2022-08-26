@@ -6,13 +6,13 @@ RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y cmake clang curl binutils-dev libunwind8-dev libssl-dev openssl pkg-config
 RUN curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 RUN ${HOME}/.cargo/bin/rustup default nightly
-RUN ${HOME}/.cargo/bin/cargo install honggfuzz --version "0.5.54"
+RUN ${HOME}/.cargo/bin/cargo install honggfuzz --version "0.5.55"
 
 ## Add source code to the build stage.
 ADD . /risingwave
 WORKDIR /risingwave
 RUN cd src/sqlparser/fuzz && \
-	RUSTFLAGS="-Znew-llvm-pass-manager=no" HFUZZ_RUN_ARGS="--run_time $run_time --exit_upon_crash" ${HOME}/.cargo/bin/cargo +nightly hfuzz build
+	RUSTFLAGS="-Cpasses=sancov-module" HFUZZ_RUN_ARGS="--run_time $run_time --exit_upon_crash" ${HOME}/.cargo/bin/cargo +nightly hfuzz build
 
 # Package Stage
 FROM ubuntu:20.04
