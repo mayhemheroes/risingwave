@@ -60,3 +60,4 @@ src/tests/sync_point/slt/e2e_test
 e2e_test/generated
 # generated scale tests by `cargo nextest`
 scale-test.tar.zst
+rlenv/mayhem/data/testsuite
