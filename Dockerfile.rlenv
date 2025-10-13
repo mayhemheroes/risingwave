@@ -10,6 +10,7 @@ RUN apt-get update && \
     apt-get install -y \
     cmake \
     clang \
+    lld \
     curl \
     binutils-dev \
     libunwind8-dev \
@@ -26,14 +27,16 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 RUN rustup default nightly
 RUN cargo install honggfuzz --version "0.5.55"
 
+# Copy honggwrap helper from honggfuzz-static image for replay functionality
+COPY --from=us-east4-docker.pkg.dev/forallsecure-1/rlenv-staging/honggfuzz-static:latest /honggwrap /usr/local/bin/honggwrap
+
 # Copy source code to standardized location
 ADD . /rlenv/source/risingwave
 WORKDIR /rlenv/source/risingwave
 
 # Build the fuzz target from the source location
 RUN cd src/sqlparser/fuzz && \
-    RUSTFLAGS="-Cpasses=sancov-module" \
-    HFUZZ_RUN_ARGS="--run_time $run_time --exit_upon_crash" \
+    RUSTFLAGS="-Cpasses=sancov-module -Clink-arg=-fuse-ld=lld" \
     cargo +nightly hfuzz build
 
 # Copy the compiled fuzz binary to expected location

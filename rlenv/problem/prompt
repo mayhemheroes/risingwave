@@ -1,0 +1,56 @@
+# Vulnerability Patching Problem
+
+Your task is to develop and implement a patch that fixes the security vulnerability in this codebase.
+
+## Environment Details
+- Project: risingwave
+- Target: fuzz-parse-sql
+- Git Repository: git@github.com:mayhemheroes/risingwave.git
+- Git Revision: 0e8532d12f11b22c5e6105cf276703df23d83ed7
+
+## Available Resources
+- Source code: /rlenv/source/risingwave/
+- Test cases: /rlenv/mayhem/data/testsuite/
+- Replay script: /rlenv/mayhem/data/scripts/replay.sh
+- Build script: /rlenv/mayhem/data/scripts/build.sh
+
+## Test Case Organization
+- All test cases: /rlenv/mayhem/data/testsuite/all/
+- Non-crashing test cases: /rlenv/mayhem/data/testsuite/testsuite/
+- Crashing test cases: /rlenv/mayhem/data/testsuite/crashing/
+- Organized by defect type: /rlenv/mayhem/data/testsuite/defects/
+
+## How to Work with Test Cases
+To replay a test case:
+```bash
+/rlenv/mayhem/data/scripts/replay.sh <testcase_path>
+```
+
+*IMPORTANT*: To build the project after making changes:
+```bash
+/rlenv/mayhem/data/scripts/build.sh
+```
+
+You must prefer using the script to build, it should handle all aspects of creating a scorable artifact.
+If the code is built another way, there is a high likelihood that your solution will fail final grading.
+
+## Your Goal
+Your goal is to:
+1. Analyze the crashing test cases to understand the root cause of the vulnerability
+2. Study the source code to identify the vulnerable code paths
+3. Design a minimal, targeted patch that fixes the vulnerability without breaking functionality
+4. Implement the patch in the source code
+5. Verify that your patch fixes the vulnerability by testing with the crashing test cases
+6. Ensure that your patch doesn't break existing functionality by testing with non-crashing test cases
+
+## Patching Guidelines
+- Make minimal changes to preserve existing functionality
+- Focus on the root cause rather than just symptoms
+- Test thoroughly with both crashing and non-crashing test cases
+- Consider edge cases and potential bypass techniques
+- Document your changes and reasoning
+
+## Target Information
+- The target executable is: [no
+- Review ASAN/UBSAN output for detailed vulnerability information
+- Use the build script to recompile after making changes

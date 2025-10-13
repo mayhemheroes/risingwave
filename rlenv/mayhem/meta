@@ -1,0 +1,12 @@
+{
+  "workspace": "mayhemheroes",
+  "project": "risingwave",
+  "target": "fuzz-parse-sql",
+  "run_id": "131",
+  "ci_url": "https://github.com:443/mayhemheroes/risingwave/actions/runs/3361928584",
+  "run_image_name": "ghcr.io/mayhemheroes/risingwave:main",
+  "run_image_with_digest": "ghcr.io/mayhemheroes/risingwave@sha256:d3ddd47d48931e4f34a76f5a10fc3438bc1c1fc3dfc5cd4eae70e931e85daf52",
+  "git_repo_url": "git@github.com:mayhemheroes/risingwave.git",
+  "git_revision": "0e8532d12f11b22c5e6105cf276703df23d83ed7",
+  "target_executable": "[no"
+}

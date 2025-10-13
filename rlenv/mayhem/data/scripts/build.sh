@@ -12,8 +12,7 @@ cd /rlenv/source/risingwave
 
 # Build the fuzz target using honggfuzz
 cd src/sqlparser/fuzz
-RUSTFLAGS="-Cpasses=sancov-module" \
-HFUZZ_RUN_ARGS="--run_time $run_time --exit_upon_crash" \
+RUSTFLAGS="-Cpasses=sancov-module -Clink-arg=-fuse-ld=lld" \
 cargo +nightly hfuzz build
 
 # Copy the compiled fuzz binary to expected locations
