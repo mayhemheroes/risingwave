@@ -19,9 +19,11 @@ RUN apt-get update && \
     pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Rust toolchain
-RUN curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-ENV PATH="/root/.cargo/bin:${PATH}"
+# Install Rust toolchain in a globally accessible location
+ENV RUSTUP_HOME=/opt/rust/rustup
+ENV CARGO_HOME=/opt/rust/cargo
+ENV PATH="/opt/rust/cargo/bin:${PATH}"
+RUN curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path
 
 # Set Rust to nightly and install honggfuzz
 RUN rustup default nightly
@@ -31,7 +33,7 @@ RUN cargo install honggfuzz --version "0.5.55"
 COPY --from=us-east4-docker.pkg.dev/forallsecure-1/rlenv-staging/honggfuzz-static:latest /honggwrap /usr/local/bin/honggwrap
 
 # Copy source code to standardized location
-ADD . /rlenv/source/risingwave
+COPY . /rlenv/source/risingwave
 WORKDIR /rlenv/source/risingwave
 
 # Build the fuzz target from the source location
@@ -39,13 +41,22 @@ RUN cd src/sqlparser/fuzz && \
     RUSTFLAGS="-Cpasses=sancov-module -Clink-arg=-fuse-ld=lld" \
     cargo +nightly hfuzz build
 
-# Copy the compiled fuzz binary to expected location
+# Copy the compiled fuzz binary to expected location and set permissions
 RUN mkdir -p /out && \
+    chmod 777 /out && \
     cp src/sqlparser/fuzz/hfuzz_target/x86_64-unknown-linux-gnu/release/fuzz_parse_sql /out/ && \
-    cp src/sqlparser/fuzz/hfuzz_target/x86_64-unknown-linux-gnu/release/fuzz_parse_sql /
+    cp src/sqlparser/fuzz/hfuzz_target/x86_64-unknown-linux-gnu/release/fuzz_parse_sql / && \
+    chmod 777 /out/fuzz_parse_sql && \
+    chmod 777 /fuzz_parse_sql
 
 # Copy rlenv directory from build context (this will include test data and scripts)
 COPY rlenv/ /rlenv/
+
+# Make /rlenv/source world-writable for unprivileged users
+RUN chmod -R 777 /rlenv/source
+
+# Make Rust installation world-accessible for unprivileged users
+RUN chmod -R 755 /opt/rust
 
 # Set working directory
 WORKDIR /rlenv/source/risingwave

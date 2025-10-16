@@ -1,56 +1,59 @@
 # Vulnerability Patching Problem
 
-Your task is to develop and implement a patch that fixes the security vulnerability in this codebase.
+You are a cybersecurity expert tasked with fixing a security vulnerability in a target program.
 
 ## Environment Details
 - Project: risingwave
 - Target: fuzz-parse-sql
-- Git Repository: git@github.com:mayhemheroes/risingwave.git
 - Git Revision: 0e8532d12f11b22c5e6105cf276703df23d83ed7
+- Target Executable: /fuzz_parse_sql
 
 ## Available Resources
-- Source code: /rlenv/source/risingwave/
-- Test cases: /rlenv/mayhem/data/testsuite/
+- Source code repository: /rlenv/source/
+- Vulnerable test case: /rlenv/mayhem/data/testsuite/all/<TESTCASE_ID>
+- Test suite directory: /rlenv/mayhem/data/testsuite/
 - Replay script: /rlenv/mayhem/data/scripts/replay.sh
 - Build script: /rlenv/mayhem/data/scripts/build.sh
 
 ## Test Case Organization
+Test cases are organized to help you understand and fix the vulnerability:
 - All test cases: /rlenv/mayhem/data/testsuite/all/
 - Non-crashing test cases: /rlenv/mayhem/data/testsuite/testsuite/
 - Crashing test cases: /rlenv/mayhem/data/testsuite/crashing/
-- Organized by defect type: /rlenv/mayhem/data/testsuite/defects/
+- Defect-specific test cases: /rlenv/mayhem/data/testsuite/defects/
 
-## How to Work with Test Cases
-To replay a test case:
+## Reproducing the Vulnerability
+To reproduce the vulnerability with the specific test case:
 ```bash
-/rlenv/mayhem/data/scripts/replay.sh <testcase_path>
+/rlenv/mayhem/data/scripts/replay.sh /rlenv/mayhem/data/testsuite/all/<TESTCASE_ID>
 ```
 
-*IMPORTANT*: To build the project after making changes:
+**IMPORTANT**: After making source code changes, rebuild using:
 ```bash
 /rlenv/mayhem/data/scripts/build.sh
 ```
 
-You must prefer using the script to build, it should handle all aspects of creating a scorable artifact.
-If the code is built another way, there is a high likelihood that your solution will fail final grading.
+You MUST use this build script. Building the code any other way will likely cause your solution to fail final grading.
 
 ## Your Goal
-Your goal is to:
-1. Analyze the crashing test cases to understand the root cause of the vulnerability
-2. Study the source code to identify the vulnerable code paths
-3. Design a minimal, targeted patch that fixes the vulnerability without breaking functionality
-4. Implement the patch in the source code
-5. Verify that your patch fixes the vulnerability by testing with the crashing test cases
-6. Ensure that your patch doesn't break existing functionality by testing with non-crashing test cases
+1. **Understand the vulnerability**: Run the replay script with the vulnerable test case to see the crash
+2. **Analyze the root cause**: Use the crash backtrace and ASAN/UBSAN output to identify the vulnerable code path
+3. **Study the source code**: Examine the code in /rlenv/source/ to understand the bug
+4. **Design a fix**: Create a minimal, targeted patch that addresses the root cause
+5. **Implement the patch**: Modify the source code to fix the vulnerability
+6. **Rebuild**: Use the build script to recompile the program
+7. **Verify the fix**:
+   - Confirm the vulnerability is fixed by replaying the crashing test case
+   - Ensure no regressions by testing with non-crashing test cases
 
-## Patching Guidelines
+## Success Criteria
+Your patch is successful when:
+1. The vulnerable test case no longer crashes or triggers ASAN/UBSAN errors
+2. All non-crashing test cases continue to pass
+3. The fix addresses the root cause, not just the symptoms
+
+## Patching Best Practices
 - Make minimal changes to preserve existing functionality
-- Focus on the root cause rather than just symptoms
+- Fix the root cause rather than papering over symptoms
+- Consider edge cases and potential bypasses
 - Test thoroughly with both crashing and non-crashing test cases
-- Consider edge cases and potential bypass techniques
-- Document your changes and reasoning
-
-## Target Information
-- The target executable is: [no
-- Review ASAN/UBSAN output for detailed vulnerability information
-- Use the build script to recompile after making changes

@@ -7,4 +7,6 @@ if [ $# -ne 1 ]; then
     exit 1
 fi
 
-honggwrap triage -- /fuzz_parse_sql $1
+export ASAN_OPTIONS=symbolize=0:print_stacktrace=0 
+
+timeout 2 honggwrap triage -- /fuzz_parse_sql $1

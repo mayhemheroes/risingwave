@@ -7,6 +7,11 @@ set -euo pipefail
 # Original image: ghcr.io/mayhemheroes/risingwave:main
 # Git revision: 0e8532d12f11b22c5e6105cf276703df23d83ed7
 
+# Set up Rust environment (installed in globally accessible location)
+export RUSTUP_HOME=/opt/rust/rustup
+export CARGO_HOME=/opt/rust/cargo
+export PATH="/opt/rust/cargo/bin:${PATH}"
+
 # Change to the source directory
 cd /rlenv/source/risingwave
 
@@ -15,10 +20,17 @@ cd src/sqlparser/fuzz
 RUSTFLAGS="-Cpasses=sancov-module -Clink-arg=-fuse-ld=lld" \
 cargo +nightly hfuzz build
 
-# Copy the compiled fuzz binary to expected locations
+# Ensure output directories exist and are world-writable
 mkdir -p /out
+chmod 777 /out 2>/dev/null || true
+
+# Copy the compiled fuzz binary to expected locations
 cp hfuzz_target/x86_64-unknown-linux-gnu/release/fuzz_parse_sql /out/
 cp hfuzz_target/x86_64-unknown-linux-gnu/release/fuzz_parse_sql /
+
+# Make the output files world-writable for unprivileged users
+chmod 777 /out/fuzz_parse_sql 2>/dev/null || true
+chmod 777 /fuzz_parse_sql 2>/dev/null || true
 
 # Verify build artifacts exist
 if [ ! -f /fuzz_parse_sql ]; then
