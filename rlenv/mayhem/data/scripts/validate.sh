@@ -2,9 +2,12 @@
 # RLENV Validation Script
 # This script validates the patch playground by:
 # 1. Running replay.sh on a sample file
-# 2. Running build.sh to rebuild the application
-# 3. Validating that the target executable modification time was updated
-# 4. Running replay.sh again and checking that the result is the same
+# 2. If PROBLEM_ID is set, verifying that the specific testcase is detected as a crash
+# 3. Running build.sh to rebuild the application
+# 4. Validating that the target executable modification time was updated
+# 5. Running replay.sh again and checking that the result is the same
+
+set -x
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPLAY_SCRIPT="$SCRIPT_DIR/replay.sh"
@@ -59,7 +62,48 @@ if [ -z "$TARGET_EXEC" ]; then
     done
 fi
 
-# Find a sample test case from our non-crashing directory
+# Check if PROBLEM_ID environment variable is set
+PROBLEM_ID="${PROBLEM_ID:-}"
+PROBLEM_ID_PATH="/rlenv/problem/id"
+
+# Try to read problem ID from file if environment variable not set
+if [ -z "$PROBLEM_ID" ] && [ -f "$PROBLEM_ID_PATH" ]; then
+    PROBLEM_ID=$(cat "$PROBLEM_ID_PATH" 2>/dev/null | tr -d '
+')
+    echo "Problem ID from file: $PROBLEM_ID"
+fi
+
+# If PROBLEM_ID is set, validate that the testcase is detected as a crash
+if [ -n "$PROBLEM_ID" ]; then
+    echo "=== Problem-specific validation enabled ==="
+    echo "Problem ID: $PROBLEM_ID"
+
+    PROBLEM_TESTCASE="$METADATA_DIR/testsuite/all/$PROBLEM_ID"
+
+    if [ ! -f "$PROBLEM_TESTCASE" ] && [ ! -L "$PROBLEM_TESTCASE" ]; then
+        echo "ERROR: Problem testcase not found at $PROBLEM_TESTCASE"
+        echo "Validation FAILED - cannot verify crash detection for problem $PROBLEM_ID"
+        exit 1
+    fi
+
+    echo "Testing that problem testcase $PROBLEM_ID is detected as a crash..."
+    "$REPLAY_SCRIPT" "$PROBLEM_TESTCASE"
+    PROBLEM_EXIT_CODE=$?
+
+    # A crashing testcase should have a non-zero exit code
+    if [ "$PROBLEM_EXIT_CODE" -eq 0 ]; then
+        echo "ERROR: Problem testcase $PROBLEM_ID did not crash (exit code: $PROBLEM_EXIT_CODE)"
+        echo "Expected a non-zero exit code to indicate a crash"
+        echo "Validation FAILED - problem testcase is not correctly detected as a crash"
+        exit 1
+    else
+        echo "SUCCESS: Problem testcase $PROBLEM_ID correctly detected as a crash (exit code: $PROBLEM_EXIT_CODE)"
+    fi
+else
+    echo "=== No problem ID set, skipping problem-specific validation ==="
+fi
+
+# Find a sample test case from our non-crashing directory for general validation
 TESTSUITE_DIR="$(dirname "$SCRIPT_DIR")/testsuite"
 SAMPLE_FILE=""
 

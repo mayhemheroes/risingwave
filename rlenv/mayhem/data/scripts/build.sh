@@ -25,9 +25,9 @@ mkdir -p /out
 chmod 777 /out 2>/dev/null || true
 
 # Copy the compiled fuzz binary to expected locations
-# Use -f flag to force overwrite without unlinking (works for unprivileged users)
-cp -f hfuzz_target/x86_64-unknown-linux-gnu/release/fuzz_parse_sql /out/
-cp -f hfuzz_target/x86_64-unknown-linux-gnu/release/fuzz_parse_sql /
+# Use cat for busybox compatibility when we can't remove the file
+cat hfuzz_target/x86_64-unknown-linux-gnu/release/fuzz_parse_sql > /out/fuzz_parse_sql
+cat hfuzz_target/x86_64-unknown-linux-gnu/release/fuzz_parse_sql > /fuzz_parse_sql
 
 # Make the output files world-writable for unprivileged users
 chmod 777 /out/fuzz_parse_sql 2>/dev/null || true
