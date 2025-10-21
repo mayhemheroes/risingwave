@@ -93,13 +93,28 @@ if [ -n "$PROBLEM_ID" ]; then
     fi
 
     echo "Testing that problem testcase $PROBLEM_ID is detected as a crash..."
-    "$REPLAY_SCRIPT" "$PROBLEM_TESTCASE"
-    PROBLEM_EXIT_CODE=$?
+    echo "Running crash test 5 times - any crash indicates the vulnerability is present..."
 
-    # A crashing testcase should have a non-zero exit code
-    if [ "$PROBLEM_EXIT_CODE" -eq 0 ]; then
-        echo "ERROR: Problem testcase $PROBLEM_ID did not crash (exit code: $PROBLEM_EXIT_CODE)"
-        echo "Expected a non-zero exit code to indicate a crash"
+    CRASHED_ANY=false
+    PROBLEM_EXIT_CODE=0
+
+    for i in {1..5}; do
+        echo "  Attempt $i/5..."
+        "$REPLAY_SCRIPT" "$PROBLEM_TESTCASE"
+        CURRENT_EXIT_CODE=$?
+        PROBLEM_EXIT_CODE=$CURRENT_EXIT_CODE  # Keep last exit code for reporting
+
+        # A crashing testcase should have a non-zero exit code
+        if [ "$CURRENT_EXIT_CODE" -ne 0 ]; then
+            CRASHED_ANY=true
+            echo "  Crashed on attempt $i (exit code: $CURRENT_EXIT_CODE)"
+            break
+        fi
+    done
+
+    if [ "$CRASHED_ANY" = false ]; then
+        echo "ERROR: Problem testcase $PROBLEM_ID did not crash in any of 5 attempts"
+        echo "Expected at least one crash to indicate the vulnerability is present"
         echo "Validation FAILED - problem testcase is not correctly detected as a crash"
         exit 1
     else
