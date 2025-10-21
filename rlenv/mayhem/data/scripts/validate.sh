@@ -73,6 +73,12 @@ if [ -z "$PROBLEM_ID" ] && [ -f "$PROBLEM_ID_PATH" ]; then
     echo "Problem ID from file: $PROBLEM_ID"
 fi
 
+# Skip problem-specific validation for placeholder/invalid IDs
+if [[ "$PROBLEM_ID" =~ ^(nodata|none|null|)$ ]]; then
+    echo "Skipping problem-specific validation (problem ID is: '$PROBLEM_ID')"
+    PROBLEM_ID=""
+fi
+
 # If PROBLEM_ID is set, validate that the testcase is detected as a crash
 if [ -n "$PROBLEM_ID" ]; then
     echo "=== Problem-specific validation enabled ==="
