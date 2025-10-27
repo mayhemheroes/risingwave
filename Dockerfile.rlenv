@@ -32,6 +32,9 @@ RUN cargo install honggfuzz --version "0.5.55"
 # Copy honggwrap helper from honggfuzz-static image for replay functionality
 COPY --from=us-east4-docker.pkg.dev/forallsecure-1/rlenv-staging/honggfuzz-static:latest /honggwrap /usr/local/bin/honggwrap
 
+# Copy MTV binary for test execution and validation
+COPY --from="us-east4-docker.pkg.dev/forallsecure-1/rlenv-staging/rlenv-mtv-static:latest" /rlenv/bin/mtv /rlenv/bin/mtv
+
 # Copy source code to standardized location
 COPY . /rlenv/source/risingwave
 WORKDIR /rlenv/source/risingwave

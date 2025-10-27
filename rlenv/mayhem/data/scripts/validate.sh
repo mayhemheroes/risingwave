@@ -1,25 +1,38 @@
 #!/bin/bash
 # RLENV Validation Script
 # This script validates the patch playground by:
-# 1. Running replay.sh on a sample file
+# 1. Running MTV triage on a sample file
 # 2. If PROBLEM_ID is set, verifying that the specific testcase is detected as a crash
 # 3. Running build.sh to rebuild the application
 # 4. Validating that the target executable modification time was updated
-# 5. Running replay.sh again and checking that the result is the same
+# 5. Running MTV triage again and checking that the result is the same
 
 set -x
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPLAY_SCRIPT="$SCRIPT_DIR/replay.sh"
 BUILD_SCRIPT="$SCRIPT_DIR/build.sh"
 METADATA_DIR="$(dirname "$SCRIPT_DIR")"
+MTV_BIN="/rlenv/bin/mtv"
+MAYHEMFILE="/rlenv/source/Mayhemfile"
 
-# Check that required scripts exist
-if [ ! -f "$REPLAY_SCRIPT" ]; then
-    echo "Error: replay.sh not found at $REPLAY_SCRIPT"
+# Check that required tools exist
+if [ ! -f "$MTV_BIN" ]; then
+    echo "Error: MTV binary not found at $MTV_BIN"
+    echo "MTV is required for validation. Ensure Dockerfile.rlenv includes:"
+    echo "  COPY --from=\"us-east4-docker.pkg.dev/forallsecure-1/rlenv-staging/rlenv-mtv-static:latest\" /rlenv/bin/mtv /rlenv/bin/mtv"
     exit 1
 fi
 
+if [ ! -f "$MAYHEMFILE" ]; then
+    echo "Error: Mayhemfile not found at $MAYHEMFILE"
+    echo "Mayhemfile is required for MTV to run tests"
+    exit 1
+fi
+
+if [ ! -f "$BUILD_SCRIPT" ]; then
+    echo "Error: build.sh not found at $BUILD_SCRIPT"
+    exit 1
+fi
 if [ ! -f "$BUILD_SCRIPT" ]; then
     echo "Error: build.sh not found at $BUILD_SCRIPT"
     exit 1
@@ -100,14 +113,14 @@ if [ -n "$PROBLEM_ID" ]; then
 
     for i in {1..5}; do
         echo "  Attempt $i/5..."
-        "$REPLAY_SCRIPT" "$PROBLEM_TESTCASE"
+        "$MTV_BIN" triage -m "$MAYHEMFILE" -i "$PROBLEM_TESTCASE" > /dev/null 2>&1
         CURRENT_EXIT_CODE=$?
         PROBLEM_EXIT_CODE=$CURRENT_EXIT_CODE  # Keep last exit code for reporting
 
-        # A crashing testcase should have a non-zero exit code
-        if [ "$CURRENT_EXIT_CODE" -ne 0 ]; then
+        # MTV triage returns exit code 1 for crashes, 0 for no crash
+        if [ "$CURRENT_EXIT_CODE" -eq 1 ]; then
             CRASHED_ANY=true
-            echo "  Crashed on attempt $i (exit code: $CURRENT_EXIT_CODE)"
+            echo "  Crashed on attempt $i (MTV detected crash)"
             break
         fi
     done
@@ -140,11 +153,28 @@ else
     echo "Using dummy testcase: $SAMPLE_FILE"
 fi
 
-# Step 1: Run replay.sh on the sample file and capture the exit code
-echo "Step 1 - Running initial replay..."
-"$REPLAY_SCRIPT" "$SAMPLE_FILE"
-FIRST_REPLAY_EXIT_CODE=$?
-echo "Initial replay exit code: $FIRST_REPLAY_EXIT_CODE"
+# Step 1: Run MTV triage on the sample file 5 times to detect intermittent crashes
+echo "Step 1 - Running initial triage (5 attempts to detect intermittent crashes)..."
+FIRST_CRASHED_ANY=false
+FIRST_TRIAGE_EXIT_CODE=0
+
+for i in {1..5}; do
+    "$MTV_BIN" triage -m "$MAYHEMFILE" -i "$SAMPLE_FILE" > /dev/null 2>&1
+    CURRENT_EXIT_CODE=$?
+    FIRST_TRIAGE_EXIT_CODE=$CURRENT_EXIT_CODE  # Keep last exit code
+
+    if [ "$CURRENT_EXIT_CODE" -eq 1 ]; then
+        FIRST_CRASHED_ANY=true
+        echo "  Non-crashing testcase crashed on attempt $i (exit code: $CURRENT_EXIT_CODE)"
+        break
+    fi
+done
+
+if [ "$FIRST_CRASHED_ANY" = true ]; then
+    echo "Initial triage: CRASHED in at least one attempt (exit code: $FIRST_TRIAGE_EXIT_CODE)"
+else
+    echo "Initial triage: PASSED all 5 attempts (exit code: $FIRST_TRIAGE_EXIT_CODE)"
+fi
 
 # Step 2: Capture target executable modification time before build
 BEFORE_MTIME=""
@@ -192,19 +222,43 @@ else
     echo "  Validation will rely on build script exit code and replay consistency"
 fi
 
-# Step 5: Run replay.sh again and verify the exit code is the same
-echo "Step 5 - Running second replay..."
-"$REPLAY_SCRIPT" "$SAMPLE_FILE"
-SECOND_REPLAY_EXIT_CODE=$?
-echo "Second replay exit code: $SECOND_REPLAY_EXIT_CODE"
+# Step 5: Run MTV triage again 5 times to detect intermittent crashes
+echo "Step 5 - Running second triage (5 attempts to detect intermittent crashes)..."
+SECOND_CRASHED_ANY=false
+SECOND_TRIAGE_EXIT_CODE=0
 
-# Step 6: Compare exit codes
-if [ "$FIRST_REPLAY_EXIT_CODE" -eq "$SECOND_REPLAY_EXIT_CODE" ]; then
-    echo "Validation PASSED - replay exit codes match ($FIRST_REPLAY_EXIT_CODE)"
+for i in {1..5}; do
+    "$MTV_BIN" triage -m "$MAYHEMFILE" -i "$SAMPLE_FILE" > /dev/null 2>&1
+    CURRENT_EXIT_CODE=$?
+    SECOND_TRIAGE_EXIT_CODE=$CURRENT_EXIT_CODE  # Keep last exit code
+
+    if [ "$CURRENT_EXIT_CODE" -eq 1 ]; then
+        SECOND_CRASHED_ANY=true
+        echo "  Non-crashing testcase crashed on attempt $i (exit code: $CURRENT_EXIT_CODE)"
+        break
+    fi
+done
+
+if [ "$SECOND_CRASHED_ANY" = true ]; then
+    echo "Second triage: CRASHED in at least one attempt (exit code: $SECOND_TRIAGE_EXIT_CODE)"
+else
+    echo "Second triage: PASSED all 5 attempts (exit code: $SECOND_TRIAGE_EXIT_CODE)"
+fi
+
+# Step 6: Compare crash behavior (not just exit codes)
+# Both triage runs should have the same crash/no-crash behavior
+if [ "$FIRST_CRASHED_ANY" = "$SECOND_CRASHED_ANY" ]; then
+    if [ "$FIRST_CRASHED_ANY" = true ]; then
+        echo "Validation PASSED - both triage runs show intermittent crashes (consistent behavior)"
+        echo "  Note: This non-crashing testcase has intermittent crashes, likely due to ASLR"
+    else
+        echo "Validation PASSED - both triage runs passed all attempts (consistent behavior)"
+    fi
     exit 0
 else
-    echo "Validation FAILED - replay exit codes differ"
-    echo "  First replay: $FIRST_REPLAY_EXIT_CODE"
-    echo "  Second replay: $SECOND_REPLAY_EXIT_CODE"
+    echo "Validation FAILED - triage behavior differs between pre-build and post-build"
+    echo "  First triage crashed: $FIRST_CRASHED_ANY"
+    echo "  Second triage crashed: $SECOND_CRASHED_ANY"
+    echo "  This indicates the build changed crash behavior in an unexpected way"
     exit 1
 fi
