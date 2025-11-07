@@ -18,7 +18,7 @@ MAYHEMFILE="/rlenv/source/Mayhemfile"
 # Check that required tools exist
 if [ ! -f "$MTV_BIN" ]; then
     echo "Error: MTV binary not found at $MTV_BIN"
-    echo "MTV is required for validation. Ensure the image includes rlenv-mtv-static"
+    echo "MTV is required for validation. Ensure the image includes rlenv-mcp-static"
     exit 1
 fi
 
