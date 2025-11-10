@@ -61,5 +61,4 @@ RUN chmod -R 777 /rlenv/source
 # Make Rust installation world-accessible for unprivileged users
 RUN chmod -R 755 /opt/rust
 
-# Set working directory
-WORKDIR /rlenv/source/risingwave
+WORKDIR /
