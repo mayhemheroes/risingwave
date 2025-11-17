@@ -49,8 +49,9 @@ RUN mkdir -p /out && \
     chmod 777 /out && \
     cp src/sqlparser/fuzz/hfuzz_target/x86_64-unknown-linux-gnu/release/fuzz_parse_sql /out/ && \
     cp src/sqlparser/fuzz/hfuzz_target/x86_64-unknown-linux-gnu/release/fuzz_parse_sql / && \
-    chmod 777 /out/fuzz_parse_sql && \
-    chmod 777 /fuzz_parse_sql
+    rm src/sqlparser/fuzz/hfuzz_target/x86_64-unknown-linux-gnu/release/fuzz_parse_sql && \
+    chmod 766 /out/fuzz_parse_sql && \
+    chmod 766 /fuzz_parse_sql
 
 # Copy rlenv directory from build context (this will include test data and scripts)
 COPY rlenv/ /rlenv/
