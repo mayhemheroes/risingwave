@@ -1,0 +1,7 @@
+project: risingwave
+target: parse-sql
+duration: 300
+
+cmds:
+  - cmd: /mayhem/fuzz_parse_sql
+    libfuzzer: true

@@ -1,0 +1,46 @@
+# BuildKit override for `docker build -f mayhem/Dockerfile`.
+# Upstream's root .dockerignore drops .git/ — we must bake full history into /mayhem.
+
+# macOS
+**/*.DS_Store
+
+# Editor / IDE
+.vscode/
+.devcontainer/
+.idea/
+*.iml
+cmake-build-debug/
+/cmake-build-wsl_profile/
+
+# build outputs
+*.exe
+*.app
+build/
+out/
+go/bin/
+src/**/target
+src/**/target_tarpaulin
+target/
+mayhem/fuzz/target/
+mayhem/test-target/
+src/proto/
+src/prost/src/*.rs
+!src/prost/src/lib.rs
+!src/prost/src/id.rs
+!src/prost/src/imp.rs
+**/file_descriptor_set.bin
+src/log/
+**/srcy-tags.vi
+**/tags
+log/
+.risingwave/
+.bin/
+
+# generated files
+risedev-components.user.env
+riselab-components.user.env
+
+# Re-include .git after upstream root .dockerignore's `.git/` (BuildKit merges both files).
+!.git
+!.git/
+!.git/**

@@ -1,0 +1,24 @@
+# Additive cargo-fuzz crate for the Mayhem integration. Detached from the parent
+# workspace so `cargo fuzz build` only compiles sqlparser + this harness.
+[package]
+name = "risingwave-mayhem-fuzz"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+risingwave_sqlparser = { path = "../../src/sqlparser" }
+
+[[bin]]
+name = "fuzz_parse_sql"
+path = "fuzz_targets/fuzz_parse_sql.rs"
+test = false
+doc = false
+bench = false
+
+[workspace]
+members = ["."]
