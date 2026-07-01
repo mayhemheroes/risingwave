@@ -1,5 +1,5 @@
 project: risingwave
-target: fuzz_parse_sql
+target: parse-sql
 
 # image: ghcr.io/nottirb/risingwave:latest
 
